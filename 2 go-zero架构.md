@@ -1,6 +1,6 @@
 在介绍go-zero实际使用前，先说一下整体架构，更方便理解
 
-![go-zero-k8s架构](/Users/seven/Desktop/go-zero文章/images/二/go-zero-k8s架构.png)
+![go-zero-k8s架构](./images/二/go-zero-k8s架构.png)
 
 ### CI/CD
 
