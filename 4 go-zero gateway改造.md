@@ -83,7 +83,7 @@ const USER_NOT_FOUND = 200001
 
 我将三个文件统一放在lib/xerr目录
 
-![1610620697734](/Users/seven/Desktop/go-zero文章/images/四/1610620697734.jpg)
+![1610620697734](./images/四/1610620697734.jpg)
 
 有了错误码还不行，还要定义统一返回http的结果，goctl生成的默认的是挺好的，但是没法符合我这种返回自定义错误码需求，于是我自己有写了一个统一返回结果的文件：
 
@@ -169,11 +169,11 @@ func Error(errCode int,errMsg string) *ResponseErrorBean {
 
 放在 lib/xhttp下
 
-![1610621002188](/Users/seven/Desktop/go-zero文章/images/四/1610621002188.jpg)
+![1610621002188](./images/四/1610621002188.jpg)
 
 然后改造了internal/handler/下通过goctl生成的代码：
 
-![1610621118371](/Users/seven/Desktop/go-zero文章/images/四/1610621118371.jpg)
+![1610621118371](./images/四/1610621118371.jpg)
 
 当然你会说，每次生成完都要手动去改，好麻烦！ 
 
@@ -213,7 +213,7 @@ func {{.HandlerName}}(ctx *svc.ServiceContext) http.HandlerFunc {
 
 然后在说我们的gateway log，如果眼神好的用户，在上面的httpresult.go中已经看到了log的身影：
 
-![1610621401602](/Users/seven/Desktop/go-zero文章/images/四/1610621401602.jpg)
+![1610621401602](./images/四/1610621401602.jpg)
 
 是的是的，这样处理就可以啦，这样只要有错误呢就会打印日志呢，go-zero已经吧trace-id带进去了，啥？trace-id不知道是啥？嗯，其实就是把一次请求通过此id串联起来，比如你user-api调用user->srv 或者其他srv，那要把他们这一次请求都串联起来，需要一个唯一标识别，这个id就是做这个，做链路追踪有很多 比如jager、zinpink
 

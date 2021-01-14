@@ -6,7 +6,7 @@ Dockerfile生成，进入api/v1/usercenter目录下，执行
 $ goctl docker -go usercenter.go
 ```
 
-![1610625460373](/Users/seven/Desktop/go-zero文章/images/九/1610625460373.jpg)
+![1610625460373](./images/九/1610625460373.jpg)
 
 ```dockerfile
 FROM golang:alpine AS builder

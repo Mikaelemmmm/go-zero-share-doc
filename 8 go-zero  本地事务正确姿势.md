@@ -2,11 +2,11 @@
 
 我现在用户在注册时候，有user（用户基本信息表）、user_auth（用户认证表），这两个在本地事务肯定要么同时成功要么同时失败，按照go-zero的做法可能就是如下图：
 
-![model trans](/Users/seven/Desktop/go-zero文章/images/七/model trans.jpeg)
+![model trans](./images/七/model trans.jpeg)
 
 这样做可以实现，但是我感觉很不优雅，后来我在想是否可以把事务暴露给logic，在logic中处理呢？于是我就做了一个封装，在每个model中都可以添加一个暴露事务的方法：
 
-![logic trans](/Users/seven/Desktop/go-zero文章/images/七/logic trans.jpeg)
+![logic trans](./images/七/logic trans.jpeg)
 
 在每个model中跟c、r、u、d一样，同时暴露一个Trans出来，在logic中就可以直接使用事务啦，感觉这样用才爽，不知道你们感觉怎么样呢？ 当然你会说，啊，每次生成完model都要在model中 添加一个Trans方法，重复的工作为什么不交给goctl呢？恭喜你答对了，我们来改造~/.goctl/model/delete.tpl:
 

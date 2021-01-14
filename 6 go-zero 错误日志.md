@@ -1,14 +1,14 @@
 在前面说到gateway改造时候，如果眼神好的童鞋，在上面的httpresult.go中已经看到了log的身影：
 
-![1610621401602](/Users/seven/Desktop/go-zero文章/images/四/1610621401602.jpg)
+![1610621401602](./images/四/1610621401602.jpg)
 
 我们在来看下rpc中怎么处理的
 
-![1610623449731](/Users/seven/Desktop/go-zero文章/images/六/1610623449731.jpg)
+![1610623449731](./images/六/1610623449731.jpg)
 
 是的，我在每个rpc启动的main中加入了grpc拦截器 https://www.yuque.com/tal-tech/go-zero/ttzlo1，那让我们看看grpc拦截器里面做了什么
 
-![1610623609972](/Users/seven/Desktop/go-zero文章/images/六/1610623609972.jpg)
+![1610623609972](./images/六/1610623609972.jpg)
 
 
 
@@ -16,9 +16,9 @@
 
 错误处理是听了毛神的课，然后我代码里面使用github/pkg/errors这个包去处理错误的,这个包还是很好用的
 
-![1610623943343](/Users/seven/Desktop/go-zero文章/images/六/1610623943343.jpg)
+![1610623943343](./images/六/1610623943343.jpg)
 
-![1610623910828](/Users/seven/Desktop/go-zero文章/images/六/1610623910828.jpg)
+![1610623910828](./images/六/1610623910828.jpg)
 
 
 

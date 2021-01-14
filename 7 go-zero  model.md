@@ -4,7 +4,7 @@ go-zero中最大特色就是model层，防缓存击穿，基本把db数据都是
 
 go-zero可以生成model，每次去在命令行敲很麻烦，我就给写成了一个shell，放在了build/mysql文件夹下
 
-![1610624436911](/Users/seven/Desktop/go-zero文章/images/七/1610624436911.jpg)
+![1610624436911](./images/七/1610624436911.jpg)
 
 ```shell
 #!/usr/bin/env bash
