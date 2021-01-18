@@ -1,3 +1,5 @@
+项目地址：https://github.com/Mikaelemmmm/gozerobasic
+
 go的项目比较灵活不像java已经形成统一标准化了，所以对于不同项目的结构都不一样，我的做法是如下：
 
 
