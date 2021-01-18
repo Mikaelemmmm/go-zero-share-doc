@@ -37,9 +37,7 @@ $ goctl kube deploy -name user-api -namespace blog -image user:v1 -o user.yaml -
 
 ### 访问流程
 
-app/web/pc首先访问到阿里云的负载均衡SLB，同时SLB可以将你的后端服务器ip隐藏起来，同时可以预防DDOS攻击，虽然有额度的，但是好过没有～～，然后SLB访问到你的K8S中的ingress，ingress不用你操心啦，如果你用了阿里云的k8s，什么ingress、什么promethuse、什么日志服务通通通通都给你搞定，我们量还没那么大，如果量特别大感觉性价比不高，日志这种就可以自己做嘛，
-
-嗯，然后ingress就可以负载均衡到到你的api服务，然后api可以在etcd中拿到多个rpc节点，调用多个后端rpc服务，rpc负责跟db交互、或者调用其他rpc获取数据（当然api、rpc之间是通过etcd动态发现的）返回给api，api就是聚合数据，然后层层返回到客户端。
+app/web/pc 透过防火墙，首先访问到阿里云的负载均衡SLB，同时SLB可以将你的后端服务器ip隐藏起来，同时可以预防DDOS攻击，虽然有额度的，但是好过没有～～，然后SLB访问到前面的nginx，nginx作为代理使用，k8s中的service通过 nodeport方式暴露出来在nignx中代理到该service，同时在nginx中上报日志到kafka，然后api可以在etcd中拿到多个rpc节点，调用多个后端rpc服务，rpc负责跟db交互、或者调用其他rpc获取数据（当然api、rpc之间是通过etcd动态发现的）返回给api，api就是聚合数据，然后层层返回到客户端。
 
 
 
