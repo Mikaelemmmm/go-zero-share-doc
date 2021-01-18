@@ -2,6 +2,8 @@
 
 Dockerfile生成，进入api/v1/usercenter目录下，执行 
 
+
+
 ```shell
 $ goctl docker -go usercenter.go
 ```
