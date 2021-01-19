@@ -6,7 +6,7 @@
 
 Step1：本地deveploer开发好代码之后提交到gitlab（这里分支就不详细说明了）
 
-Step2：登陆到jenkins，使用pipline方式部署
+Step2：jenkins，使用pipline方式部署
 
 - 从gitlab拉取代码
 - docker build ，基于最新gitlab上的code构建镜像
