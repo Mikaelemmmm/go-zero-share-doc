@@ -1,108 +1,24 @@
-日常任务开放中，我们会有很多异步、批量、定时、延迟任务要处理，go-zero中有go-queue，推荐使用go-queue去处理，go-queue本身也是基于go-zero开发的，其本身是有两种模式
+### go-zero 分布式定时任务
+
+
+
+日常任务开发中，我们会有很多异步、批量、定时、延迟任务要处理，go-zero中有go-queue，推荐使用go-queue去处理，go-queue本身也是基于go-zero开发的，其本身是有两种模式
 
 - dq : 依赖于beanstalkd，分布式，可存储，延迟、定时设置，关机重启可以重新执行，消息会丢失，使用非常简单，go-queue中使用了redis setnx保证了每个消息只被消费一次，使用场景主要是用来做日常任务使用
 - kq：依赖于kafka，这个就不多介绍啦，大名鼎鼎的kafka，使用场景主要是做日志用
 
 我们主要说一下dq，kq使用也一样的，只是依赖底层不同，如果没使用过beanstalkd，没接触过beanstalkd的可以先google一下，使用起来还是挺容易的。
 
-我在jobs下使用goctl新建了一个message-job.api服务
-
-```go
-info(
-	title: //消息任务
-	desc: // 消息任务
-	author: "Mikael"
-	email: "13247629622@163.com"
-)
-
-type BatchSendMessageReq {}
-
-type BatchSendMessageResp {}
-
-service message-job-api {
-	@handler batchSendMessageHandler // 批量发送短信
-	post batchSendMessage(BatchSendMessageReq) returns(BatchSendMessageResp)
-}
-```
-
-
-
-因为不需要使用路由，所以handler下的routes.go被我删除了，在handler下新建了一个jobRun.go，内容如下：
-
-```go
-package handler
-
-import (
-	"fishtwo/lib/xgo"
-	"fishtwo/app/jobs/message/internal/svc"
-)
-
-
-/**
-* @Description 启动job
-* @Author Mikael
-* @Date 2021/1/18 12:05
-* @Version 1.0
-**/
-
-func JobRun(serverCtx *svc.ServiceContext)  {
-
-	xgo.Go(func() {
-		batchSendMessageHandler(serverCtx)
-    //...many job
-	})
-}
-```
-
-其实xgo.Go就是 go batchSendMessageHandler(serverCtx) ，封装了一下go携程，防止野生goroutine panic
-
-
-
-然后修改一下启动文件message-job.go
-
-```go
-package main
-
-import (
-   "flag"
-   "fmt"
-
-   "fishtwo/app/jobs/message/internal/config"
-   "fishtwo/app/jobs/message/internal/handler"
-   "fishtwo/app/jobs/message/internal/svc"
-
-   "github.com/tal-tech/go-zero/core/conf"
-   "github.com/tal-tech/go-zero/rest"
-)
-
-var configFile = flag.String("f", "etc/message-job-api.yaml", "the config file")
-
-func main() {
-   flag.Parse()
-
-   var c config.Config
-   conf.MustLoad(*configFile, &c)
-
-   ctx := svc.NewServiceContext(c)
-   server := rest.MustNewServer(c.RestConf)
-   defer server.Stop()
-
-   handler.JobRun(ctx)
-
-   fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
-   server.Start()
-}
-```
-
-主要是handler.RegisterHandlers(server, ctx) 修改为handler.JobRun(ctx)
-
-
-
-接下来，我们就可以引入dq了，首先在etc/xxx.yaml下添加dqConf
+etc/job.yaml : 配置文件
 
 ```yaml
-.....
+Name: job
 
+Log:
+  ServiceName: job
+  Level: info
+
+#dq依赖Beanstalks、redis ，Beanstalks配置、redis配置
 DqConf:
   Beanstalks:
     - Endpoint: 127.0.0.1:7771
@@ -112,16 +28,31 @@ DqConf:
   Redis:
     Host: 127.0.0.1:6379
     Type: node
-
 ```
 
-我这里本地用不同端口，模拟开了2个节点，7771、7772
 
-在internal/config/config.go添加配置解析对象
+
+Internal/config/config.go ：解析dq对应etc/*.yaml配置
 
 ```go
+/**
+* @Description 配置文件
+* @Author Mikael
+* @Email 13247629622@163.com
+* @Date 2021/1/18 12:05
+* @Version 1.0
+**/
+
+package config
+
+import (
+	"github.com/tal-tech/go-queue/dq"
+	"github.com/tal-tech/go-zero/core/service"
+
+)
+
 type Config struct {
-	....
+	service.ServiceConf
 	DqConf dq.DqConf
 }
 
@@ -129,122 +60,250 @@ type Config struct {
 
 
 
-修改handler/batchsendmessagehandler.go
+Handler/router.go : 负责注册多任务
 
 ```go
+/**
+* @Description 注册job
+* @Author Mikael
+* @Email 13247629622@163.com
+* @Date 2021/1/18 12:05
+* @Version 1.0
+**/
 package handler
 
 import (
 	"context"
-	"fishtwo/app/jobs/message/internal/logic"
-	"fishtwo/app/jobs/message/internal/svc"
-	"github.com/tal-tech/go-zero/core/logx"
+	"github.com/tal-tech/go-zero/core/service"
+	"job/internal/logic"
+	"job/internal/svc"
 )
 
-func batchSendMessageHandler(ctx *svc.ServiceContext){
+func RegisterJob(serverCtx *svc.ServiceContext,group *service.ServiceGroup)  {
 
-	rootCxt:= context.Background()
-	l := logic.NewBatchSendMessageLogic(context.Background(), ctx)
-	err := l.BatchSendMessage()
-	if err != nil{
-		logx.WithContext(rootCxt).Error("【JOB-ERR】 : %+v ",err)
-	}
+	group.Add(logic.NewProducerLogic(context.Background(),serverCtx))
+	group.Add(logic.NewConsumerLogic(context.Background(),serverCtx))
+
+	group.Start()
+
 }
-
 ```
 
 
 
-修改logic下batchsendmessagelogic.go，写我们的consumer消费逻辑
+ProducerLogic: 其中一个job业务逻辑
 
- ```go
+```go
+/**
+* @Description 生产者任务
+* @Author Mikael
+* @Email 13247629622@163.com
+* @Date 2021/1/18 12:05
+* @Version 1.0
+**/
 package logic
 
 import (
 	"context"
-	"fishtwo/app/jobs/message/internal/svc"
-	"fmt"
+	"github.com/tal-tech/go-queue/dq"
 	"github.com/tal-tech/go-zero/core/logx"
+	"github.com/tal-tech/go-zero/core/threading"
+	"job/internal/svc"
+	"strconv"
+	"time"
 )
 
-type BatchSendMessageLogic struct {
-	logx.Logger
+
+
+type Producer struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
+	logx.Logger
 }
 
-func NewBatchSendMessageLogic(ctx context.Context, svcCtx *svc.ServiceContext) BatchSendMessageLogic {
-	return BatchSendMessageLogic{
-		Logger: logx.WithContext(ctx),
+func NewProducerLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Producer {
+	return &Producer{
 		ctx:    ctx,
 		svcCtx: svcCtx,
+		Logger: logx.WithContext(ctx),
 	}
 }
 
+func (l *Producer)Start()  {
 
-func (l *BatchSendMessageLogic) BatchSendMessage() error {
-
-	fmt.Printf("job BatchSendMessage start \n")
-
-	l.svcCtx.Consumer.Consume(func(body []byte) {
-		fmt.Printf("job BatchSendMessage %s \n" + string(body))
+	logx.Infof("start  Producer \n")
+	threading.GoSafe(func() {
+		producer := dq.NewProducer([]dq.Beanstalk{
+			{
+				Endpoint: "localhost:7771",
+				Tube:     "tube1",
+			},
+			{
+				Endpoint: "localhost:7772",
+				Tube:     "tube2",
+			},
+		})
+		for i := 1000; i < 1005; i++ {
+			_, err := producer.Delay([]byte(strconv.Itoa(i)), time.Second * 1)
+			if err != nil {
+				logx.Error(err)
+			}
+		}
 	})
-
-	fmt.Printf("job BatchSendMessage finish \n")
-	return nil
 }
 
- ```
+func (l *Producer)Stop()  {
+	logx.Infof("stop Producer \n")
+}
 
 
-
-这样就大功告成了，启动message-job.go就ok课
-
-```shell
-go run message-job.go
 ```
 
-
-
-之后我们就可以在业务代码中向dq添加任务，它就可以自动消费了
-
-
-
- producer.Delay 向dq中投递5个延迟任务：
+另外一个Job业务逻辑
 
 ```go
-	producer := dq.NewProducer([]dq.Beanstalk{
-		{
-			Endpoint: "localhost:7771",
-			Tube:     "tube1",
-		},
-		{
-			Endpoint: "localhost:7772",
-			Tube:     "tube2",
-		},
-	})
+/**
+* @Description 消费者任务
+* @Author Mikael
+* @Email 13247629622@163.com
+* @Date 2021/1/18 12:05
+* @Version 1.0
+**/
+package logic
 
-	for i := 1000; i < 1005; i++ {
-		_, err := producer.Delay([]byte(strconv.Itoa(i)), time.Second * 1)
-		if err != nil {
-			fmt.Println(err)
-		}
+import (
+	"context"
+	"github.com/tal-tech/go-zero/core/logx"
+	"github.com/tal-tech/go-zero/core/threading"
+	"job/internal/svc"
+)
+
+type Consumer struct {
+	ctx    context.Context
+	svcCtx *svc.ServiceContext
+	logx.Logger
+}
+
+func NewConsumerLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Consumer {
+	return &Consumer{
+		ctx:    ctx,
+		svcCtx: svcCtx,
+		Logger: logx.WithContext(ctx),
 	}
+}
+
+func (l *Consumer)Start()  {
+	logx.Infof("start consumer \n")
+
+	threading.GoSafe(func() {
+		l.svcCtx.Consumer.Consume(func(body []byte) {
+			logx.Infof("consumer job  %s \n" ,string(body))
+		})
+	})
+}
+
+func (l *Consumer)Stop()  {
+	logx.Infof("stop consumer \n")
+}
 ```
 
- producer.At可以指定某个时间执行，非常好用，感兴趣的朋友自己可以研究下
+
+
+svc/servicecontext.go
+
+```go
+/**
+* @Description 配置
+* @Author Mikael
+* @Email 13247629622@163.com
+* @Date 2021/1/18 12:05
+* @Version 1.0
+**/
+package svc
+
+import (
+	"job/internal/config"
+	"github.com/tal-tech/go-queue/dq"
+)
+
+type ServiceContext struct {
+	Config config.Config
+	Consumer      dq.Consumer
+}
+
+func NewServiceContext(c config.Config) *ServiceContext {
+	return &ServiceContext{
+		Config: c,
+		Consumer: dq.NewConsumer(c.DqConf),
+	}
+}
+
+```
 
 
 
+main.go启动文件
+
+```go
+/**
+* @Description 启动文件
+* @Author Mikael
+* @Email 13247629622@163.com
+* @Date 2021/1/18 12:05
+* @Version 1.0
+**/
+package main
+
+import (
+	"flag"
+	"fmt"
+	"github.com/tal-tech/go-zero/core/conf"
+	"github.com/tal-tech/go-zero/core/logx"
+	"github.com/tal-tech/go-zero/core/service"
+	"job/internal/config"
+	"job/internal/handler"
+	"job/internal/svc"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+)
 
 
+var configFile = flag.String("f", "etc/job.yaml", "the config file")
 
+func main() {
+	flag.Parse()
 
+	//配置
+	var c config.Config
+	conf.MustLoad(*configFile, &c)
+	ctx := svc.NewServiceContext(c)
 
+	//注册job
+	group := service.NewServiceGroup()
+	handler.RegisterJob(ctx,group)
 
-
-
-
+	//捕捉信号
+	ch := make(chan os.Signal)
+	signal.Notify(ch, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
+	for {
+		s := <-ch
+		logx.Info("get a signal %s", s.String())
+		switch s {
+		case syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT:
+			fmt.Printf("stop group")
+			group.Stop()
+			logx.Info("job exit")
+			time.Sleep(time.Second)
+			return
+		case syscall.SIGHUP:
+		default:
+			return
+		}
+	}
+}
+```
 
 
 
